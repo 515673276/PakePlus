@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成绩分析系统</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei","PingFang SC","宋体",sans-serif;
+         background: #f0f3fa; color: #222; line-height: 1.6; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 20px 60px; }
+  header { background: linear-gradient(135deg,#4472C4,#2b4f9b); color:#fff;
+           border-radius: 14px; padding: 26px 28px; box-shadow: 0 6px 20px rgba(68,114,196,.3); }
+  header h1 { font-size: 24px; }
+  header p { opacity:.92; margin-top: 8px; font-size: 14px; }
+  .card { background:#fff; border-radius: 12px; padding: 22px 24px; margin-top: 20px;
+          box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .card h2 { font-size: 16px; color:#2b4f9b; margin-bottom: 6px; display:flex; align-items:center; gap:8px; }
+  .step-badge { background:#4472C4; color:#fff; width:24px; height:24px; border-radius:50%;
+                display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+  .hint { font-size: 13px; color:#777; margin: 6px 0 14px; }
+  .drop { border: 2px dashed #b9c6e6; border-radius: 10px; padding: 22px; text-align:center;
+          background:#f7f9ff; transition:.2s; cursor:pointer; }
+  .drop.hover { border-color:#4472C4; background:#eef3ff; }
+  .drop .name { font-weight:bold; color:#2b4f9b; margin-top:6px; }
+  input[type=file] { display:none; }
+  button { background:#4472C4; color:#fff; border:none; border-radius:8px; padding:12px 26px;
+           font-size:15px; cursor:pointer; transition:.2s; }
+  button:hover { background:#2b4f9b; }
+  button:disabled { background:#aab6d4; cursor:not-allowed; }
+  .btn-light { background:#fff; color:#2b4f9b; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  .btn-light:hover { background:#eef3ff; color:#1b3a75; }
+  .row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:14px; }
+  .msg { margin-top:14px; font-size:14px; padding:10px 14px; border-radius:8px; display:none; }
+  .msg.ok { background:#e7f6ec; color:#1a7a3c; display:block; }
+  .msg.err { background:#fdecec; color:#c0392b; display:block; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  th,td { border:1px solid #e2e6f0; padding:6px 8px; text-align:center; }
+  th { background:#4472C4; color:#fff; }
+  footer { text-align:center; color:#9aa3b8; font-size:12px; margin-top:30px; }
+  .opt { font-size:12px; color:#888; }
+  .examBox { background:#fff; border-radius:12px; padding:20px 24px; margin-top:20px;
+             box-shadow:0 2px 10px rgba(0,0,0,.06); }
+  .examBox h2 { font-size:16px; color:#2b4f9b; margin-bottom:10px; }
+  .field { display:flex; align-items:center; gap:10px; margin:8px 0; flex-wrap:wrap; }
+  .field label { font-size:14px; color:#333; width:88px; }
+  .field input[type=text], .field input[type=date] {
+     border:1px solid #b9c6e6; border-radius:8px; padding:9px 12px; font-size:14px;
+     flex:1; min-width:220px; }
+  .field input:focus { outline:none; border-color:#4472C4; box-shadow:0 0 0 3px rgba(68,114,196,.15); }
+</style>
+
+<style id="gateStyle">
+  #authGate{position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;
+    background:linear-gradient(135deg,#2b4f9b,#4472C4);display:flex;
+    align-items:center;justify-content:center;font-family:"Microsoft YaHei","PingFang SC",sans-serif;}
+  #authBox{background:#fff;border-radius:16px;padding:34px 32px;width:360px;max-width:90%;
+    box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  #authBox h1{font-size:20px;color:#2b4f9b;text-align:center;margin-bottom:4px;}
+  #authBox .sub{font-size:12px;color:#888;text-align:center;margin-bottom:20px;}
+  #authBox label{display:block;font-size:13px;color:#444;margin:12px 0 4px;}
+  #authBox input{width:100%;padding:10px 12px;border:1px solid #cfd6e6;border-radius:8px;
+    font-size:14px;outline:none;}
+  #authBox input:focus{border-color:#4472C4;}
+  #authBtn{width:100%;margin-top:18px;padding:11px;border:none;border-radius:8px;
+    background:linear-gradient(135deg,#4472C4,#2b4f9b);color:#fff;font-size:15px;cursor:pointer;}
+  #authBtn:hover{opacity:.92;}
+  #authMsg{min-height:18px;margin-top:12px;font-size:13px;text-align:center;color:#d9534f;}
+  #remainTip{font-size:12px;color:#2b4f9b;text-align:center;margin-top:8px;}
+  body.auth-locked{overflow:hidden;}
+</style>
+</head>
+<body>
+<div id="authGate">
+  <div id="authBox">
+    <h1>成绩分析系统</h1>
+    <div class="sub">请输入用户名和密码</div>
+    <label>用户名</label>
+    <input id="authUser" type="text" autocomplete="off" placeholder="请输入用户名">
+    <label>密码</label>
+    <input id="authPass" type="password" autocomplete="off" placeholder="请输入密码">
+    <button id="authBtn">登 录</button>
+    <div id="authMsg"></div>
+    <div id="remainTip"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var ACCOUNTS = {
+    '陈晓丹': { pass: '666',    limit: 50 },
+    '赵利':   { pass: '667788', limit: 500 },
+    '赵凯睿': { pass: '667788', limit: 5000 }
+  };
+  var LS_PREFIX = 'scoreAnaUse::';
+  var LS_LOGIN  = 'scoreAnaLoggedIn';
+
+  var gate = document.getElementById('authGate');
+  var uEl  = document.getElementById('authUser');
+  var pEl  = document.getElementById('authPass');
+  var btn  = document.getElementById('authBtn');
+  var msg  = document.getElementById('authMsg');
+  var tip  = document.getElementById('remainTip');
+
+  function setLocked(on){
+    if(on){ document.body.classList.add('auth-locked'); }
+    else  { document.body.classList.remove('auth-locked'); }
+    gate.style.display = on ? 'flex' : 'none';
+  }
+  function useKey(name){ return LS_PREFIX + name; }
+  function getUse(name){
+    var v = parseInt(localStorage.getItem(useKey(name)) || '0', 10);
+    return isNaN(v) ? 0 : v;
+  }
+  function enter(name, remain){
+    setLocked(false);
+    sessionStorage.setItem(LS_LOGIN, name);
+    tip.textContent = '欢迎你，' + name + '（本电脑剩余 ' + remain + ' 次）';
+  }
+  function block(){
+    msg.textContent = '此用户名在本电脑的使用次数已用完，程序已失效。';
+    uEl.disabled = true; pEl.disabled = true;
+    btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
+  }
+  function tryLogin(){
+    var name = (uEl.value || '').trim();
+    var pass = (pEl.value || '').trim();
+    msg.textContent = '';
+    if(!name || !pass){ msg.textContent = '请填写用户名和密码'; return; }
+    var acc = ACCOUNTS[name];
+    if(!acc || acc.pass !== pass){ msg.textContent = '用户名或密码错误'; return; }
+    var used = getUse(name);
+    if(used >= acc.limit){ block(); return; }
+    localStorage.setItem(useKey(name), String(used + 1));
+    enter(name, acc.limit - (used + 1));
+  }
+  btn.addEventListener('click', tryLogin);
+  function onKey(e){ if(e.key === 'Enter'){ tryLogin(); } }
+  uEl.addEventListener('keydown', onKey);
+  pEl.addEventListener('keydown', onKey);
+
+  var who = sessionStorage.getItem(LS_LOGIN);
+  if(who && ACCOUNTS[who] && getUse(who) <= ACCOUNTS[who].limit){
+    enter(who, ACCOUNTS[who].limit - getUse(who));
+  } else {
+    setLocked(true);
+    sessionStorage.removeItem(LS_LOGIN);
+  }
+})();
+</script>
+
+<div class="wrap">
+  <header>
+    <h1>成绩分析系统</h1>
+    
+    <div style="margin-top:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button id="btnReload" class="btn-light">重新导入新表并计算</button>
+      <input type="file" id="fileReload" accept=".xlsx,.xls">
+      <span style="color:#e6ecfb;font-size:13px">点击后可直接选一份新的基础数据，立即重新计算并下载分析表</span>
+    </div>
+  </header>
+
+  <div class="examBox">
+    <h2>考试信息（每次分析前先填写，将作为分析表各表表头）</h2>
+    <div class="field">
+      <label>考试名称</label>
+      <input type="text" id="examName" placeholder="如：2025学年第一学期期中考试">
+    </div>
+    <div class="field">
+      <label>考试时间</label>
+      <input type="date" id="examDate">
+    </div>
+  </div>
+
+  <div class="examBox">
+    <h2>临界生追踪 · 班级达标分（每班可设不同达标分，默认 96）</h2>
+    <div class="field">
+      <label>全部设为</label>
+      <input type="number" id="allTarget" min="0" step="1" placeholder="如 96" style="max-width:120px">
+      <button id="btnApplyAll" class="btn-light" style="padding:8px 16px;font-size:13px">应用到全部班级</button>
+    </div>
+    <div class="field" id="targetInputs" style="gap:10px 16px"></div>
+  </div>
+
+  <div class="examBox">
+    <h2>各档保优 · 划线名次（共 5 档，按年级排名划线）</h2>
+    <div class="field" id="honorInputs" style="gap:10px 16px"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">1</span>选择基础数据文件</h2>
+    <label class="drop" id="drop1">
+      <div>点击选择 或 把文件拖到这里</div>
+      <div class="name" id="name1">未选择文件</div>
+      <input type="file" id="file1" accept=".xlsx,.xls">
+    </label>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-badge">2</span>生成并下载</h2>
+    <div class="row">
+      <button id="btn" disabled>开始生成分析表</button>
+      <span class="opt" id="count"></span>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card" id="previewCard" style="display:none">
+    <h2>生成结果预览（总成绩表前若干行）</h2>
+    <div id="preview" style="overflow:auto"></div>
+  </div>
+</div>
+
+<script>
+const SUBJECTS = ['语文','数学','英语','科学','社会'];
+
+let baseWb = null, tplWb = null;
+
+function num(v){ const x = parseFloat(v); return isNaN(x) ? null : x; }
+
+// 考试信息 -> 表头标题文本
+function examTitle(){
+  var nm = (document.getElementById('examName').value||'').trim();
+  var dt = (document.getElementById('examDate').value||'').trim();
+  if(!nm) throw new Error('请先填写「考试名称」。');
+  if(!dt) throw new Error('请先选择「考试时间」。');
+  return nm + '　' + dt;
+}
+
+// 班级简称: 九01班 -> 901
+function classCode(cls){
+  const s=String(cls).trim();
+  const d=s.replace(/^九/,'').replace(/班$/,'');
+  if(/^[0-9]+$/.test(d)) return '9'+d;
+  const m=s.match(/\d+/); return m?('9'+m[0]):s;
+}
+
+// 竞赛排名法: 并列取最小(1,2,2,4)
+function rankMin(vals){
+  const order = vals.map((v,i)=>i);
+  order.sort((a,b)=>{ const va=vals[a]==null?-1:vals[a], vb=vals[b]==null?-1:vals[b]; return (vb-va)||(a-b); });
+  const rk = new Array(vals.length).fill(0);
+  let prev = Symbol(), pos = 0;
+  order.forEach((idx, rank) => {
+    const v = vals[idx];
+    if (v !== prev){ pos = rank + 1; prev = v; }
+    rk[idx] = pos;
+  });
+  return rk;
+}
+
+function readBase(wb){
+  const ws = wb.Sheets['总成绩'];
+  if(!ws) throw new Error('基础数据里找不到名为「总成绩」的工作表。');
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  const headRow = aoa[0] || [];
+  const headIdx = {};
+  headRow.forEach((h,c)=>{ const k=String(h).trim(); if(k && !(k in headIdx)) headIdx[k]=c; });
+  ['考生班级','考生姓名','总分'].forEach(k=>{ if(!(k in headIdx)) throw new Error('表头缺少列：'+k); });
+  const recs = [];
+  for(let r=1;r<aoa.length;r++){
+    const row = aoa[r];
+    const cls = String(row[headIdx['考生班级']]||'').trim();
+    const nm  = String(row[headIdx['考生姓名']]||'').trim();
+    if(!cls && !nm) continue;
+    const rec = {班级: row[headIdx['考生班级']], 姓名: row[headIdx['考生姓名']]};
+    SUBJECTS.forEach(s=> rec[s] = headIdx[s]!==undefined ? row[headIdx[s]] : '');
+    rec['总分'] = row[headIdx['总分']];
+    recs.push(rec);
+  }
+  return recs;
+}
+
+// 读取「任课教师及班主任」表 -> teacher[科目][班级代码]=教师
+function readTeachers(wb){
+  const teacher = {};
+  if(!wb.Sheets['任课教师及班主任']) return teacher;
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets['任课教师及班主任'], {header:1, defval:''});
+  const SUBSET = {'语文':1,'数学':1,'英语':1,'科学':1,'社会':1,'总分':1};
+  const R=aoa.length, C=aoa.reduce((m,r)=>Math.max(m,r.length),0);
+  for(let r=0;r<R;r++){
+    for(let c=0;c<C;c++){
+      const v=String((aoa[r]&&aoa[r][c]!=null?aoa[r][c]:'')+'').trim();
+      if(SUBSET[v]){
+        teacher[v] = teacher[v] || {};
+        for(let rr=r+1; rr<R; rr++){
+          const headv=String((aoa[rr]&&aoa[rr][c]!=null?aoa[rr][c]:'')+'').trim();
+          if(headv) break;                       // 下一科目块开始
+          const cls=String((aoa[rr]&&aoa[rr][c+1]!=null?aoa[rr][c+1]:'')+'').trim();
+          const nm =String((aoa[rr]&&aoa[rr][c+2]!=null?aoa[rr][c+2]:'')+'').trim();
+          if(/^\d+$/.test(cls)) teacher[v][cls]=nm;
+        }
+      }
+    }
+  }
+  return teacher;
+}
+
+const HEADER_STYLE = {
+  font:{ bold:true, color:{rgb:'FFFFFF'}, sz:11, name:'宋体' },
+  fill:{ fgColor:{rgb:'4472C4'} },
+  alignment:{ horizontal:'center', vertical:'center' }
+};
+const TITLE_STYLE = {
+  font:{ bold:true, color:{rgb:'1F3864'}, sz:13, name:'宋体' },
+  fill:{ fgColor:{rgb:'DDE6F7'} },
+  alignment:{ horizontal:'center', vertical:'center' }
+};
+// 把标题行插入 aoa 最前面，并在 sheet 上合并整行
+function prependTitle(ws, title, ncol, nRows){
+  // 合并第 0 行整行
+  ws['!merges'] = (ws['!merges']||[]).concat([{s:{r:0,c:0},e:{r:0,c:Math.max(0,ncol-1)}}]);
+  for(let c=0;c<ncol;c++){
+    const a=XLSX.utils.encode_cell({r:0,c});
+    if(!ws[a]) ws[a]={t:'s',v:''};
+    ws[a].s=TITLE_STYLE;
+  }
+  ws['!rows']=(ws['!rows']||[]); ws['!rows'][0]={hpt:26};
+}
+function styleHeader(ws, ncol){
+  for(let c=0;c<ncol;c++){
+    const addr = XLSX.utils.encode_cell({r:1,c});   // 标题占第0行，表头在第1行
+    if(ws[addr]) ws[addr].s = HEADER_STYLE;
+  }
+}
+function autoWidth(ws, ncol){
+  const cols=[];
+  const maxR = ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.r+1:0;
+  for(let c=0;c<ncol;c++){
+    let w=8;
+    for(let r=1;r<maxR;r++){
+      const cell=ws[XLSX.utils.encode_cell({r,c})];
+      if(cell && cell.v!==undefined && cell.v!==null){
+        const s=String(cell.v); const cn=/[\u4e00-\u9fff]/.test(s);
+        const L=cn? (s.length*2+2) : (s.length+2);
+        if(L>w)w=L;
+      }
+    }
+    cols.push({wch:Math.min(w,20)});
+  }
+  ws['!cols']=cols;
+}
+// 通用建表: title 作为第0行合并表头, 数据从 aoa 起, 表头行按 HEADER_STYLE 上移到第1行
+function addSheet(wb, name, aoa, ncol, title){
+  const rows = title!=null ? [[title]].concat(aoa) : aoa;
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  if(title!=null){
+    styleHeader(ws, ncol);
+    prependTitle(ws, title, Math.max(ncol, rows[0].length), rows.length);
+    ws['!freeze']='A3';
+  } else {
+    styleHeader(ws, ncol); ws['!freeze']='A2';
+  }
+  autoWidth(ws, ncol);
+  XLSX.utils.book_append_sheet(wb, ws, name);
+  return ws;
+}
+
+// 各科满分人数及名单
+function buildFullMarkSheet(wb, recs, title){
+  const NAME_ROWS = 8;
+  const FULL_MARKS = {'语文':100,'数学':100,'英语':100,'科学':100,'社会':100};
+  const fullMarks = {}; SUBJECTS.forEach(s=> fullMarks[s] = (s in FULL_MARKS) ? FULL_MARKS[s] : 100);
+  const blocks = SUBJECTS.map(s=>{
+    const fm=fullMarks[s], idx=[];
+    recs.forEach((r,i)=>{const v=num(r[s]); if(fm!=null&&v!=null&&v===fm)idx.push(i);});
+    idx.sort((a,b)=>{const ca=classCode(recs[a]['班级']),cb=classCode(recs[b]['班级']);
+      return ca<cb?-1:(ca>cb?1:(a-b));});
+    return {subject:s, fm, list:idx};
+  });
+  const pairsOf = L => Math.max(1, Math.ceil(L/NAME_ROWS));
+  const totalCols = blocks.reduce((t,b)=>t+pairsOf(b.list.length)*2,0);
+  const off = title!=null?1:0;
+  const nRows = off + 4 + NAME_ROWS;
+  const aoa=[]; for(let r=0;r<nRows;r++) aoa.push(new Array(totalCols).fill(''));
+  if(off){ aoa[0][0]=title; }
+  const merges=[]; if(off) merges.push({s:{r:0,c:0},e:{r:0,c:totalCols-1}});
+  let col=0;
+  blocks.forEach(b=>{
+    const pairs=pairsOf(b.list.length), bw=pairs*2;
+    aoa[off+0][col]=b.subject+'（满分'+(b.fm==null?'—':b.fm)+'分）';
+    merges.push({s:{r:off,c:col},e:{r:off,c:col+bw-1}});
+    aoa[off+1][col]='总计 '+b.list.length+'人';
+    merges.push({s:{r:off+1,c:col},e:{r:off+1,c:col+bw-1}});
+    const byClass={}, order=[];
+    b.list.forEach(i=>{const cc=classCode(recs[i]['班级']); if(!(cc in byClass)){byClass[cc]=0;order.push(cc);} byClass[cc]++;});
+    order.sort();
+    aoa[off+2][col]=order.map(cc=>cc+'：'+byClass[cc]+'人').join('\n');
+    merges.push({s:{r:off+2,c:col},e:{r:off+2,c:col+bw-1}});
+    for(let p=0;p<pairs;p++){ aoa[off+3][col+p*2]='班级'; aoa[off+3][col+p*2+1]='姓名'; }
+    b.list.forEach((i,k)=>{ const p=Math.floor(k/NAME_ROWS), rowk=k%NAME_ROWS;
+      aoa[off+4+rowk][col+p*2]=recs[i]['班级']; aoa[off+4+rowk][col+p*2+1]=recs[i]['姓名']; });
+    col+=bw;
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=merges;
+  const BRD={top:{style:'thin',color:{rgb:'B0B7CC'}},bottom:{style:'thin',color:{rgb:'B0B7CC'}},left:{style:'thin',color:{rgb:'B0B7CC'}},right:{style:'thin',color:{rgb:'B0B7CC'}}};
+  const TTITLE={font:{bold:true,color:{rgb:'1F3864'},sz:13,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const TITLE={font:{bold:true,color:{rgb:'FFFFFF'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'4472C4'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const DIST ={font:{bold:true,color:{rgb:'2B4F9B'},sz:10,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'left',vertical:'top',wrapText:true},border:BRD};
+  const CELL ={font:{sz:11,name:'宋体'},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  for(let r=0;r<nRows;r++) for(let c=0;c<totalCols;c++){
+    const a=XLSX.utils.encode_cell({r,c});
+    if(!ws[a]) ws[a]={t:'s',v:''};
+    if(off && r===0){ ws[a].s=TTITLE; continue; }
+    const rr=r-off;
+    ws[a].s = (rr===2)?DIST:(rr<=3?TITLE:CELL);
+  }
+  ws['!cols']=new Array(totalCols).fill({wch:9});
+  const rows=[{hpt:20},{hpt:18},{hpt:46},{hpt:18}];
+  if(off){ ws['!rows']=[{hpt:26}].concat(rows); ws['!freeze']='A6'; }
+  else { ws['!rows']=rows; ws['!freeze']='A5'; }
+  XLSX.utils.book_append_sheet(wb, ws, '各科满分人数及名单');
+}
+
+// 各班各科均分与年级平均分均差对比
+function buildAvgDiffSheet(wb, recs, teacher, title, prevDiff, curDiffName){
+  const setCls={}; recs.forEach(r=> setCls[classCode(r['班级'])]=1);
+  const classes=Object.keys(setCls).sort();
+  const sumCnt={};
+  SUBJECTS.concat(['总分']).forEach(s=>{ sumCnt[s]={}; classes.forEach(c=> sumCnt[s][c]={s:0,n:0}); sumCnt[s]['__all']={s:0,n:0}; });
+  recs.forEach(r=>{
+    const cc=classCode(r['班级']);
+    SUBJECTS.concat(['总分']).forEach(s=>{
+      const v=num(r[s]); if(v==null) return;
+      if(sumCnt[s][cc]){ sumCnt[s][cc].s+=v; sumCnt[s][cc].n++; }
+      sumCnt[s]['__all'].s+=v; sumCnt[s]['__all'].n++;
+    });
+  });
+  function avgOf(s,key){ const o=sumCnt[s][key]; return o.n? o.s/o.n : null; }
+  const fmt2 = x => x==null?null:Math.round(x*100)/100;
+  const numCells = [];
+  const rankCells = [];
+  // 历史均差系列
+  const pNames = (prevDiff && prevDiff.names) ? prevDiff.names : [];
+  const pList  = (prevDiff && prevDiff.data) ? prevDiff.data : [];
+  const NP = pNames.length;
+  const BANDS=[['语文','英语','社会'],['数学','科学','总分']];
+  const off = title!=null?1:0;
+  // 列布局: 0学科 1班级 2教师 3成绩 4排名 5..(5+NP-1)历史均差 (5+NP)本次均差
+  const COLW = 5 + NP + 1;
+  const LAST = COLW-1;
+  const totalCols=COLW*BANDS[0].length;
+  const bandRowSpan = 1 + classes.length;
+  const headerRows = 1;
+  const nRows = off + headerRows + bandRowSpan*BANDS.length;
+  const aoa=[]; for(let r=0;r<nRows;r++) aoa.push(new Array(totalCols).fill(''));
+  if(off) aoa[0][0]=title;
+  const merges=[]; if(off) merges.push({s:{r:0,c:0},e:{r:0,c:totalCols-1}});
+  const hrow = off;
+  // 列表头行
+  BANDS[0].forEach((s,bi)=>{
+    const base=bi*COLW;
+    aoa[hrow][base]='学科'; aoa[hrow][base+2]='教师'; aoa[hrow][base+3]='成绩'; aoa[hrow][base+4]='排名';
+    for(let i=0;i<NP;i++) aoa[hrow][base+5+i]=pNames[i]+'均差';
+    aoa[hrow][base+5+NP]=curDiffName;
+  });
+  BANDS.forEach((band,bandIdx)=>{
+    band.forEach((subj,bi)=>{
+      const base=bi*COLW;
+      const startRow = off + (bandIdx===0?headerRows:headerRows+bandRowSpan);
+      aoa[startRow][base]=subj;
+      merges.push({s:{r:startRow,c:base},e:{r:startRow+classes.length,c:base}});
+      aoa[startRow][base+1]='班级';
+      const label = (subj==='总分')?'年级总分平均分':(subj+'年级均分');
+      aoa[startRow][base+2]=label;
+      aoa[startRow][base+3]=fmt2(avgOf(subj,'__all')); numCells.push({r:startRow,c:base+3});
+      merges.push({s:{r:startRow,c:base+3},e:{r:startRow,c:base+LAST}});
+      const ca={}; classes.forEach(c=> ca[c]=avgOf(subj,c));
+      const order=[...classes].sort((a,b)=>{
+        const va=ca[a]==null?-1:ca[a], vb=ca[b]==null?-1:ca[b]; return (vb-va)||(a<b?-1:1);
+      });
+      const rk={}; let prev=Symbol(), pos=0;
+      order.forEach((c,rank)=>{ const v=ca[c]; if(v!==prev){pos=rank+1;prev=v;} rk[c]=pos; });
+      const gradeAvg = avgOf(subj,'__all');
+      classes.forEach((c,k)=>{
+        const rr=startRow+1+k;
+        aoa[rr][base+1]=c;
+        aoa[rr][base+2]=(teacher[subj]&&teacher[subj][c])?teacher[subj][c]:'';
+        aoa[rr][base+3]=fmt2(ca[c]); numCells.push({r:rr,c:base+3});
+        aoa[rr][base+4]=rk[c]; rankCells.push({r:rr,c:base+4});
+        for(let i=0;i<NP;i++){
+          const d=pList[i]&&pList[i][subj]?pList[i][subj][c]:null;
+          aoa[rr][base+5+i]=(d==null||isNaN(d))?'':fmt2(d); if(aoa[rr][base+5+i]!=='') numCells.push({r:rr,c:base+5+i});
+        }
+        const cur=(ca[c]!=null&&gradeAvg!=null)? fmt2(ca[c]-gradeAvg):'';
+        aoa[rr][base+5+NP]=cur; if(cur!=='') numCells.push({r:rr,c:base+5+NP});
+      });
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=merges;
+  const BRD={top:{style:'thin',color:{rgb:'B0B7CC'}},bottom:{style:'thin',color:{rgb:'B0B7CC'}},left:{style:'thin',color:{rgb:'B0B7CC'}},right:{style:'thin',color:{rgb:'B0B7CC'}}};
+  const TTITLE={font:{bold:true,color:{rgb:'1F3864'},sz:13,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const HD   ={font:{bold:true,color:{rgb:'FFFFFF'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'4472C4'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const SUBJ ={font:{bold:true,color:{rgb:'2B4F9B'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const NUM  ={font:{sz:11,name:'宋体'},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  for(let r=0;r<nRows;r++) for(let c=0;c<totalCols;c++){
+    const a=XLSX.utils.encode_cell({r,c});
+    if(!ws[a]) ws[a]={t:'s',v:''};
+    if(off && r===0){ ws[a].s=TTITLE; continue; }
+    ws[a].s=NUM;
+  }
+  function setStyle(r,c,st){ const a=XLSX.utils.encode_cell({r,c}); if(ws[a]) ws[a].s=st; }
+  BANDS[0].forEach((s,bi)=>{ const b=bi*COLW; setStyle(hrow,b,HD); [b+2,b+3,b+4].forEach(cc=>setStyle(hrow,cc,HD)); for(let i=5;i<=LAST;i++) setStyle(hrow,b+i,HD); });
+  BANDS.forEach((band,bi0)=>{
+    const startRow=off+(bi0===0?headerRows:headerRows+bandRowSpan);
+    band.forEach((subj,bi)=>{
+      const b=bi*COLW;
+      setStyle(startRow,b,SUBJ); setStyle(startRow,b+1,HD); setStyle(startRow,b+2,HD); setStyle(startRow,b+3,HD); setStyle(startRow,b+4,HD);
+      for(let i=5;i<=LAST;i++) setStyle(startRow,b+i,HD);
+    });
+  });
+  ws['!cols']=new Array(totalCols).fill({wch:11});
+  const rr=[]; for(let i=0;i<nRows;i++) rr.push({hpt:18});
+  if(off) rr[0]={hpt:26};
+  ws['!rows']=rr;
+  ws['!freeze']= off?'A'+(off+2):'A2';
+  numCells.forEach(p=>{ const a=XLSX.utils.encode_cell(p); if(ws[a]) ws[a].z='0.00'; });
+  rankCells.forEach(p=>{ const a=XLSX.utils.encode_cell(p); if(ws[a]) ws[a].z='0'; });
+  XLSX.utils.book_append_sheet(wb, ws, '各班各科均分与年级平均分均差对比');
+}
+
+
+
+// 读取基础数据中的历史「各班各科均分与年级均分均差对比」表
+// 返回 { names:[系列名...], data:[{科目:{班级代码:均差}}, ...] }  —— 历史里每一个均差列都成为一个独立系列
+function readPrevAvgDiff(wb){
+  const empty = {names:[], data:[]};
+  if(!wb) return empty;
+  const ws = wb.Sheets['各班各科均分与年级均分均差对比'] || wb.Sheets['各班各科均分与年级平均分均差对比'];
+  if(!ws) return empty;
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  let hrow=-1;
+  for(let r=0;r<aoa.length;r++){ const row=aoa[r]||[];
+    if(row.some(x=>String(x).trim()==='学科')){ hrow=r; break; }
+  }
+  if(hrow<0) return empty;
+  const hrowVals = aoa[hrow]||[];
+  const SUBJSET = new Set(['语文','数学','英语','科学','社会','总分']);
+  function normCls(v){ v=String(v).trim(); if(/^9\d{2}$/.test(v)) return v; return classCode(v); }
+  function isDiff(h){ h=String(h).trim(); return h==='均差' || /均差$/.test(h); }
+  function cleanName(h){ h=String(h).trim(); h=h.replace(/均差$/,'').trim(); if(h==='') h='上次'; return h; }
+  const blockStarts=[]; for(let X=0;X<hrowVals.length;X++){ if(String(hrowVals[X]).trim()==='学科') blockStarts.push(X); }
+  if(!blockStarts.length) return empty;
+  const names=[]; const data=[];
+  function indexOfName(nm){ let i=names.indexOf(nm); if(i<0){ const o={}; SUBJSET.forEach(s=>o[s]={}); names.push(nm); data.push(o); i=names.length-1; } return i; }
+  blockStarts.forEach((X,bi)=>{
+    const nextStart = (bi+1<blockStarts.length)? blockStarts[bi+1] : hrowVals.length;
+    const classCol = X+1;
+    const diffCols=[];
+    for(let c=X+1;c<nextStart;c++){ const h=hrowVals[c]; if(isDiff(h)) diffCols.push({c:c, name:cleanName(h)}); }
+    if(!diffCols.length) return;
+    diffCols.forEach(dc=> dc.idx = indexOfName(dc.name));
+    let curSubject=null;
+    for(let r=hrow+1;r<aoa.length;r++){
+      const row = aoa[r]||[];
+      const xv = String(row[X]).trim();
+      if(SUBJSET.has(xv)){ curSubject = xv; continue; }
+      if(curSubject==null) continue;
+      const cls = String(row[classCol]==null?'':row[classCol]).trim();
+      if(cls===''){ curSubject=null; continue; }
+      const code = normCls(cls);
+      diffCols.forEach(dc=>{ const v=num(row[dc.c]); if(v!=null) data[dc.idx][curSubject][code]=v; });
+    }
+  });
+  return {names:names, data:data};
+}
+
+// 读取「临界生」表 -> { '901':[姓名...], ..., __order:['901',...] }
+function readCritical(wb){
+  const map = {}; const order = [];
+  const ws = wb.Sheets['临界生']; if(!ws) return map;
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  let cur = null;
+  for(let r=0;r<aoa.length;r++){
+    const a = String((aoa[r]&&aoa[r][0]!=null?aoa[r][0]:'')+'').trim();
+    const b = String((aoa[r]&&aoa[r][1]!=null?aoa[r][1]:'')+'').trim();
+    const mm = a.match(/(\d{3})班.*临界生/);
+    if(mm){ cur = mm[1]; map[cur]=[]; order.push(cur); continue; }
+    if(a==='平均分' || a==='有效分达标率' || b==='平均分' || b==='有效分达标率'){ cur=null; continue; }
+    if(a==='序号' || a==='编号' || b==='名称' || b==='姓名') continue;
+    if(cur && b) map[cur].push(b);
+  }
+  map.__order = order;
+  return map;
+}
+
+// 首页达标分输入 -> { '901':96, ... }
+function getTargetMap(){
+  const m={};
+  document.querySelectorAll('#targetInputs .tgtInput').forEach(inp=>{
+    const code=inp.getAttribute('data-code');
+    let v=parseFloat(inp.value); if(isNaN(v)||v<0) v=96;
+    m[code]=v;
+  });
+  return m;
+}
+
+// 导入基础数据后，按班级动态生成达标分输入框（保留已填值）
+function renderTargetInputs(wb){
+  let codes=[];
+  const cm=readCritical(wb); if(cm.__order && cm.__order.length) codes=cm.__order.slice();
+  else { try{ const recs=readBase(wb); const s={}; recs.forEach(r=>s[classCode(r['班级'])]=1); codes=Object.keys(s).sort(); }catch(e){} }
+  const box=document.getElementById('targetInputs');
+  const old={}; box.querySelectorAll('.tgtInput').forEach(i=>old[i.getAttribute('data-code')]=i.value);
+  box.innerHTML='';
+  codes.forEach(code=>{
+    const sp=document.createElement('span'); sp.style.cssText='display:inline-flex;align-items:center;gap:6px';
+    const val = (old[code]!=null && old[code]!=='')?old[code]:'96';
+    sp.innerHTML='<label style="font-weight:bold;color:#2b4f9b">'+code+'班达标分</label>'+
+      '<input type="number" class="tgtInput" data-code="'+code+'" min="0" step="1" value="'+val+'" '+
+      'style="width:72px;border:1px solid #b9c6e6;border-radius:6px;padding:6px 8px">';
+    box.appendChild(sp);
+  });
+}
+
+// 考试简称横幅文本（考试名 + 换行 + 短日期），用于追踪表第二行
+function examShortText(){
+  var nm=(document.getElementById('examName').value||'').trim();
+  var dt=(document.getElementById('examDate').value||'').trim();
+  var sd=''; if(dt){ var p=dt.split('-'); if(p.length===3) sd=(+p[1])+'.'+(+p[2]); }
+  return nm + (sd?('\n'+sd):'');
+}
+
+function styleRange(ws,r1,c1,r2,c2,st){
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){
+    const a=XLSX.utils.encode_cell({r,c}); if(!ws[a]) ws[a]={t:'s',v:''}; ws[a].s=st;
+  }
+}
+
+// 临界生追踪表
+// 读取基础数据中的历史「临界生追踪表」
+// 返回 { names:[系列名...], data:[{学科:{班级代码:{姓名:分}}}] } —— 历史里每一个学科成绩列都按"系列名+学科"归列
+function readPrevTrack(wb){
+  const empty={names:[],data:[]};
+  if(!wb) return empty;
+  const ws = wb.Sheets['临界生追踪表'];
+  if(!ws) return empty;
+  const aoa = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  const SUBJSET=['语文','数学','英语','科学','社会'];
+  const names=[]; const data=[];
+  function indexOfName(nm){ let i=names.indexOf(nm); if(i<0){ const o={}; SUBJSET.forEach(sg=>o[sg]={}); names.push(nm); data.push(o); i=names.length-1; } return i; }
+  function parseHeader(h){
+    h=String(h==null?'':h).replace(/\s+/g,'').trim();
+    if(h==='') return null;
+    h=h.replace(/（达标分[\d.]+分）/,'').replace(/\(达标分[\d.]+分\)/,'').trim();
+    if(h==='') return null;
+    let subject=null;
+    SUBJSET.forEach(sg=>{ if(h.slice(-sg.length)===sg) subject=sg; });
+    if(!subject) return null;
+    let series=h.slice(0,h.length-subject.length).trim();
+    series=series.replace(/[\s]*\d+\.\d+$/,'').trim();
+    if(series==='') series='上次';
+    return {subject:subject, series:series};
+  }
+  let curClass=null, awaiting=false;
+  for(let r=0;r<aoa.length;r++){
+    const row=aoa[r]||[];
+    const a0=String(row[0]==null?'':row[0]).trim();
+    const mm=a0.match(/(\d{3})班.*临界生追踪表/);
+    if(mm){ curClass=mm[1]; awaiting=true; continue; }
+    if(a0==='平均分' || a0==='有效分达标率'){ curClass=null; awaiting=false; continue; }
+    if(curClass==null || !awaiting) continue;
+    let isSub=false;
+    for(let c=0;c<row.length;c++){ const t=String(row[c]==null?'':row[c]).trim(); if(t==='序号'||t==='名称'){ isSub=true; break; } }
+    if(!isSub) continue;
+    const hrow=r+1; const hvals=aoa[hrow]||[];
+    const colDefs=[];
+    for(let c=2;c<hvals.length;c++){ const ph=parseHeader(hvals[c]); if(ph) colDefs.push({c:c, subject:ph.subject, idx:indexOfName(ph.series)}); }
+    if(!colDefs.length){ awaiting=false; continue; }
+    for(let rr=hrow+1;rr<aoa.length;rr++){
+      const row2=aoa[rr]||[];
+      const a2=String(row2[0]==null?'':row2[0]).trim();
+      if(a2==='平均分'||a2==='有效分达标率'||a2==='序号') break;
+      const name=String(row2[1]==null?'':row2[1]).trim();
+      if(!name) break;
+      colDefs.forEach(cd=>{ const v=num(row2[cd.c]); if(v!=null){ const o=data[cd.idx][cd.subject]; if(!o[curClass]) o[curClass]={}; o[curClass][name]=v; } });
+    }
+    awaiting=false;
+  }
+  return {names:names, data:data};
+}
+
+// 临界生追踪表（含历史学科成绩对比：历史列插到本次成绩前面，低于达标分同样标粉）
+function buildCriticalSheet(wb, recs, totRankMin, criticalMap, targetMap, examShort, title, prevTrack, examName){
+  const codes = (criticalMap.__order && criticalMap.__order.length)
+      ? criticalMap.__order.slice()
+      : Object.keys(criticalMap).filter(k=>k!=='__order').sort();
+  if(!codes.length) return;
+  const idx={}; recs.forEach((r,i)=>{ idx[String(r['姓名']).trim()]=i; });
+  const off = title!=null?1:0;
+  const pNames=(prevTrack && prevTrack.names)?prevTrack.names:[];
+  const pList =(prevTrack && prevTrack.data)?prevTrack.data:[];
+  const NH=pNames.length;          // 历史系列个数
+  const W=NH+1;                    // 每个学科占的列数：历史NH列 + 本次1列
+  // 列布局（同学科放到一起）：0序号 1名称  各学科块[历史系列0..NH-1, 本次]  总分  年级名次
+  const colOf=function(k,si){ return 2 + k*W + si; };   // 学科k、第si列（si<NH为历史，si===NH为本次）
+  const curCol=function(k){ return 2 + k*W + NH; };      // 学科k的本次列
+  const colTotal = 2 + SUBJECTS.length*W;
+  const colRank  = colTotal + 1;
+  const NC = colRank + 1;
+  const blocks = codes.map(code=>{
+    const names = criticalMap[code]||[];
+    const target = (targetMap[code]!=null?targetMap[code]:96);
+    return {code, names, target};
+  });
+  let nRows=off; blocks.forEach(b=>{ nRows += 3 + b.names.length + 2; });
+  const aoa=[]; for(let r=0;r<nRows;r++) aoa.push(new Array(NC).fill(''));
+  const merges=[];
+  if(off){ aoa[0][0]=title; merges.push({s:{r:0,c:0},e:{r:0,c:NC-1}}); }
+  const special=[]; const pctCells=[]; const avgCells=[];
+  let row=off;
+  blocks.forEach(b=>{
+    const n=b.names.length;
+    const titleRow=row;
+    aoa[titleRow][0]=b.code+'班总分参照临界生追踪表'; merges.push({s:{r:titleRow,c:0},e:{r:titleRow,c:NC-1}});
+    const grpRow=titleRow+1, subRow=titleRow+2;
+    // 组头行：序号/名称 + 每个学科一块（横向合并，块名=学科） + 总分/年级名次（纵向合并）
+    aoa[grpRow][0]='序号'; aoa[grpRow][1]='名称';
+    merges.push({s:{r:grpRow,c:0},e:{r:subRow,c:0}});
+    merges.push({s:{r:grpRow,c:1},e:{r:subRow,c:1}});
+    SUBJECTS.forEach((s,k)=>{
+      const gc=2+k*W;
+      aoa[grpRow][gc]=s;
+      if(W>1) merges.push({s:{r:grpRow,c:gc},e:{r:grpRow,c:gc+W-1}});
+    });
+    aoa[grpRow][colTotal]='总分'; aoa[grpRow][colRank]='年级名次';
+    merges.push({s:{r:grpRow,c:colTotal},e:{r:subRow,c:colTotal}});
+    merges.push({s:{r:grpRow,c:colRank},e:{r:subRow,c:colRank}});
+    // 子表头行：历史列=系列名；本次列=考试名称+（达标分X分）
+    const tgtTxt='（达标分'+b.target+'分）';
+    const curPrefix=(examName||'');
+    SUBJECTS.forEach((s,k)=>{
+      for(let si=0;si<NH;si++){ aoa[subRow][colOf(k,si)] = pNames[si]; }
+      aoa[subRow][curCol(k)] = curPrefix + tgtTxt;
+    });
+    row = subRow+1;
+    // 学生行
+    b.names.forEach((nm,k)=>{
+      aoa[row][0]=k+1; aoa[row][1]=nm;
+      SUBJECTS.forEach((s,kk)=>{
+        // 历史列
+        for(let si=0;si<NH;si++){
+          let val='';
+          const bucket=(pList[si]&&pList[si][s]&&pList[si][s][b.code])?pList[si][s][b.code][nm]:null;
+          if(bucket!=null){ val=Math.round(bucket*100)/100; if(bucket<b.target) special.push({r:row,c:colOf(kk,si)}); }
+          aoa[row][colOf(kk,si)]=val;
+        }
+        // 本次列
+        const gi=idx[nm]; let val='';
+        if(gi!=null){ const v=num(recs[gi][s]); val=(v==null?'':recs[gi][s]); if(v!=null && v<b.target) special.push({r:row,c:curCol(kk)}); }
+        aoa[row][curCol(kk)]=val;
+      });
+      const gi=idx[nm];
+      if(gi!=null){ aoa[row][colTotal]=recs[gi]['总分']; aoa[row][colRank]=totRankMin[gi]; }
+      row++;
+    });
+    // 平均分（各学科本次列 + 总分，两位小数）
+    aoa[row][0]='平均分'; merges.push({s:{r:row,c:0},e:{r:row,c:1}});
+    SUBJECTS.forEach((s,kk)=>{ let ss=0,cnt=0;
+      b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi][s]); if(v!=null){ss+=v;cnt++;} } });
+      aoa[row][curCol(kk)]=cnt?Math.round(ss/cnt*100)/100:''; if(aoa[row][curCol(kk)]!=='') avgCells.push({r:row,c:curCol(kk)}); });
+    let ts=0,tc=0; b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi]['总分']); if(v!=null){ts+=v;tc++;} } });
+    aoa[row][colTotal]=tc?Math.round(ts/tc*100)/100:''; if(aoa[row][colTotal]!=='') avgCells.push({r:row,c:colTotal});
+    row++;
+    // 有效分达标率（各学科本次列，百分数）
+    aoa[row][0]='有效分达标率'; merges.push({s:{r:row,c:0},e:{r:row,c:1}});
+    SUBJECTS.forEach((s,kk)=>{ let hit=0;
+      b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi][s]); if(v!=null && v>=b.target) hit++; } });
+      if(n){ aoa[row][curCol(kk)]= hit/n; pctCells.push({r:row,c:curCol(kk)}); } else { aoa[row][curCol(kk)]=''; } });
+    row++;
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=merges;
+  const BRD={top:{style:'thin',color:{rgb:'B0B7CC'}},bottom:{style:'thin',color:{rgb:'B0B7CC'}},left:{style:'thin',color:{rgb:'B0B7CC'}},right:{style:'thin',color:{rgb:'B0B7CC'}}};
+  const TTITLE={font:{bold:true,color:{rgb:'1F3864'},sz:13,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const CTITLE={font:{bold:true,color:{rgb:'FFFFFF'},sz:12,name:'宋体'},fill:{fgColor:{rgb:'4472C4'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const SUBH={font:{bold:true,color:{rgb:'2B4F9B'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BRD};
+  const COLH={font:{bold:true,color:{rgb:'2B4F9B'},sz:10,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BRD};
+  const CELL ={font:{sz:11,name:'宋体'},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const AVGR ={font:{bold:true,sz:11,name:'宋体'},fill:{fgColor:{rgb:'EAF1FB'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const PINK ={font:{sz:11,name:'宋体'},fill:{fgColor:{rgb:'FFC0CB'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  let r2=off;
+  if(off){ styleRange(ws,0,0,0,NC-1,TTITLE); }
+  blocks.forEach(b=>{
+    styleRange(ws,r2,0,r2,NC-1,CTITLE); r2++;            // 块标题行
+    styleRange(ws,r2,0,r2,NC-1,SUBH); r2++;              // 学科组头行
+    styleRange(ws,r2,0,r2,NC-1,COLH); r2++;              // 子表头行
+    styleRange(ws,r2,0,r2+b.names.length-1,NC-1,CELL); r2+=b.names.length;
+    styleRange(ws,r2,0,r2,NC-1,AVGR); r2++;              // 平均分
+    styleRange(ws,r2,0,r2,NC-1,AVGR); r2++;              // 有效分达标率
+  });
+  special.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]) ws[a].s=PINK; });
+  pctCells.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]) ws[a].z='0.00%'; });
+  avgCells.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]) ws[a].z='0.00'; });
+  const cols=[{wch:6},{wch:11}];
+  for(let k=0;k<SUBJECTS.length;k++) for(let w=0;w<W;w++) cols.push({wch:12});
+  cols.push({wch:9}); cols.push({wch:9});
+  ws['!cols']=cols;
+  const rr=[]; for(let i=0;i<nRows;i++) rr.push({hpt:18}); if(off) rr[0]={hpt:26};
+  ws['!rows']=rr; ws['!freeze']= off?'A2':'A1';
+  XLSX.utils.book_append_sheet(wb, ws, '临界生追踪表');
+}
+
+
+// 读取「参考人数」表 -> {list:[{cls,code,teacher,should,actual}], grade:{should,actual}}
+function readRefNums(wb){
+  const ws = wb.Sheets['参考人数']; if(!ws) return null;
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  const list=[]; let grade=null;
+  for(let r=0;r<aoa.length;r++){
+    const a=String((aoa[r]&&aoa[r][0]!=null?aoa[r][0]:'')+'').trim();
+    if(!a || a==='班级' || /^总人数$/.test(a)) continue;
+    const b=String((aoa[r]&&aoa[r][1]!=null?aoa[r][1]:'')+'').trim();
+    const should=aoa[r]&&aoa[r][2], actual=aoa[r]&&aoa[r][3];
+    if(/全年级/.test(a)){ grade={should:num(should), actual:num(actual)}; continue; }
+    if(/班/.test(a)) list.push({cls:a, code:classCode(a), teacher:b, should:num(should), actual:num(actual)});
+  }
+  return {list:list, grade:grade};
+}
+
+// 首页 5 个划线名次输入 -> 升序去重的数组
+function getHonorLines(){
+  const arr=[];
+  for(let i=1;i<=5;i++){ const el=document.getElementById('line'+i); if(!el) continue;
+    const v=parseInt(el.value); if(!isNaN(v)&&v>0) arr.push(v); }
+  if(!arr.length) return [10,20,50,100,150];
+  arr.sort((a,b)=>a-b);
+  const u=[]; arr.forEach(v=>{ if(u.indexOf(v)<0) u.push(v); });
+  return u;
+}
+
+function renderHonorInputs(){
+  const box=document.getElementById('honorInputs'); if(!box) return;
+  if(box.getAttribute('data-init')) return;
+  const defs=[10,20,50,100,150];
+  let html='';
+  defs.forEach((d,i)=>{ html+='<span style="display:inline-flex;align-items:center;gap:6px">'+
+    '<label style="font-weight:bold;color:#2b4f9b">第'+(i+1)+'档</label>'+
+    '<input type="number" id="line'+(i+1)+'" min="1" step="1" value="'+d+'" '+
+    'style="width:78px;border:1px solid #b9c6e6;border-radius:6px;padding:6px 8px"></span>'; });
+  box.innerHTML=html; box.setAttribute('data-init','1');
+}
+
+// 读取基础数据中的历史「各档保优人数」表
+// 返回 { names:[系列名(考试名+时间)...], data:[{ '前N名数字':{班级代码:人数} }, ...] }
+function readPrevHonor(wb){
+  const empty={names:[],data:[]};
+  if(!wb) return empty;
+  const ws = wb.Sheets['各档保优人数'];
+  if(!ws) return empty;
+  const aoa = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  function normCls(v){ v=String(v).trim(); if(/^9\d{2}$/.test(v)) return v; return classCode(v); }
+  let hrow=-1;
+  for(let r=0;r<aoa.length;r++){ const row=aoa[r]||[];
+    if(row.some(x=>/^前\d+名$/.test(String(x).trim()))){ hrow=r; break; } }
+  if(hrow<0) return empty;
+  const hvals=aoa[hrow]||[]; const svals=aoa[hrow+1]||[];
+  let classCol=-1; for(let c=0;c<hvals.length;c++){ if(String(hvals[c]).trim()==='班级'){ classCol=c; break; } }
+  if(classCol<0) return empty;
+  const blocks=[];
+  for(let c=0;c<hvals.length;c++){
+    const lab=String(hvals[c]).trim(); const m=lab.match(/^前(\d+)名$/); if(!m) continue;
+    let series=String(svals[c]==null?'':svals[c]).replace(/\s+/g,' ').trim();
+    if(series==='') series='上次';
+    blocks.push({c:c,N:m[1],series:series});
+  }
+  if(!blocks.length) return empty;
+  const names=[]; const data=[];
+  function idxOf(nm){ let i=names.indexOf(nm); if(i<0){ names.push(nm); data.push({}); i=names.length-1; } return i; }
+  blocks.forEach(b=> b.idx=idxOf(b.series));
+  for(let r=hrow+2;r<aoa.length;r++){
+    const row=aoa[r]||[];
+    const clsRaw=String(row[classCol]==null?'':row[classCol]).trim();
+    if(clsRaw==='' || /全年级/.test(clsRaw)) continue;
+    if(!(/班/.test(clsRaw) || /^9\d{2}$/.test(clsRaw) || /^\d{3}$/.test(clsRaw))) continue;
+    const code=normCls(clsRaw);
+    blocks.forEach(b=>{ const v=num(row[b.c]); if(v!=null){ const o=data[b.idx]; if(!o[b.N]) o[b.N]={}; o[b.N][code]=v; } });
+  }
+  return {names:names, data:data};
+}
+
+// 各档保优人数表（复刻参照表版式，按年级竞赛名次累计统计；含历史各档对比：历史列插到本次前面，同档放一起）
+function buildHonorSheet(wb, recs, totRankMin, refData, lines, examShort, prevHonor){
+  const byClass={};
+  recs.forEach((r,i)=>{ const cc=classCode(r['班级']); (byClass[cc]=byClass[cc]||[]).push(totRankMin[i]); });
+  let classes, grade;
+  if(refData && refData.list && refData.list.length){
+    classes=refData.list.slice(); grade=refData.grade||null;
+  } else {
+    const s={}; recs.forEach(r=> s[classCode(r['班级'])]=r['班级']);
+    classes=Object.keys(s).sort().map(code=>({cls:s[code], code:code, teacher:'', should:null, actual:null}));
+    grade=null;
+  }
+  const NL=lines.length; if(!NL) return;
+  const ph=(prevHonor && prevHonor.names)?prevHonor.names:[];
+  const pd=(prevHonor && prevHonor.data)?prevHonor.data:[];
+  const NH=ph.length;
+  const W=NH+1;
+  const FIXED=4;
+  const totalCols = FIXED + NL*W;
+  const nData = classes.length + 1;
+  const nRows = 2 + nData;
+  const colBlock = k => FIXED + k*W;
+  const colCur   = k => FIXED + k*W + NH;
+  const aoa=[]; for(let r=0;r<nRows;r++) aoa.push(new Array(totalCols).fill(''));
+  const gRow=2+classes.length;
+  aoa[0][0]='班级'; aoa[0][1]='班主任'; aoa[0][2]='总人数';
+  lines.forEach((N,li)=>{ aoa[0][colBlock(li)]='前'+N+'名'; });
+  aoa[1][2]='应到人数'; aoa[1][3]='实到';
+  lines.forEach((N,li)=>{
+    for(let si=0;si<NH;si++){ aoa[1][colBlock(li)+si]=ph[si]; }
+    aoa[1][colCur(li)]=examShort;
+  });
+  classes.forEach((c,k)=>{
+    const rr=2+k;
+    aoa[rr][0]=c.cls; aoa[rr][1]=(c.teacher||'');
+    aoa[rr][2]=(c.should!=null?c.should:''); aoa[rr][3]=(c.actual!=null?c.actual:'');
+    const ranks=byClass[c.code]||[];
+    lines.forEach((N,li)=>{
+      for(let si=0;si<NH;si++){
+        const o=pd[si]&&pd[si][String(N)]?pd[si][String(N)]:null;
+        const d=o&&o[c.code]!=null?o[c.code]:'';
+        aoa[rr][colBlock(li)+si]=(d===''||d==null||isNaN(d))?'':d;
+      }
+      let cnt=0; ranks.forEach(rk=>{ if(rk<=N) cnt++; });
+      aoa[rr][colCur(li)]=cnt;
+    });
+  });
+  aoa[gRow][0]='全年级';
+  const allRanks=totRankMin.slice();
+  aoa[gRow][2]=(grade&&grade.should!=null)?grade.should:recs.length;
+  aoa[gRow][3]=(grade&&grade.actual!=null)?grade.actual:recs.length;
+  lines.forEach((N,li)=>{ let cnt=0; allRanks.forEach(rk=>{ if(rk<=N) cnt++; }); aoa[gRow][colCur(li)]=cnt; });
+  const merges=[{s:{r:0,c:0},e:{r:1,c:0}},{s:{r:0,c:1},e:{r:1,c:1}},
+                {s:{r:0,c:2},e:{r:0,c:3}},
+                {s:{r:gRow,c:0},e:{r:gRow,c:1}}];
+  lines.forEach((N,li)=>{ const cb=colBlock(li); if(W>1) merges.push({s:{r:0,c:cb},e:{r:0,c:cb+W-1}}); });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=merges;
+  const BRD={top:{style:'thin',color:{rgb:'B0B7CC'}},bottom:{style:'thin',color:{rgb:'B0B7CC'}},left:{style:'thin',color:{rgb:'B0B7CC'}},right:{style:'thin',color:{rgb:'B0B7CC'}}};
+  const HD ={font:{bold:true,color:{rgb:'FFFFFF'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'4472C4'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BRD};
+  const SUB={font:{bold:true,color:{rgb:'2B4F9B'},sz:10,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BRD};
+  const CELL={font:{sz:11,name:'宋体'},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const GR  ={font:{bold:true,sz:11,name:'宋体'},fill:{fgColor:{rgb:'EAF1FB'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  for(let r=0;r<nRows;r++) for(let c=0;c<totalCols;c++){
+    const a=XLSX.utils.encode_cell({r,c}); if(!ws[a]) ws[a]={t:'s',v:''};
+    if(r===0||r===1) ws[a].s=(r===0?HD:SUB);
+    else if(r===gRow) ws[a].s=GR;
+    else ws[a].s=CELL;
+  }
+  const widths=[{wch:9},{wch:8},{wch:6},{wch:6}];
+  for(let li=0; li<NL; li++){ for(let w=0; w<W; w++) widths.push({wch:9}); }
+  ws['!cols']=widths;
+  const rr=[]; for(let i=0;i<nRows;i++) rr.push({hpt:20}); rr[1]={hpt:34};
+  ws['!rows']=rr; ws['!freeze']='A3';
+  XLSX.utils.book_append_sheet(wb, ws, '各档保优人数');
+}
+
+function generate(){
+  const title = examTitle();       // 未填考试名称/时间会抛错
+  const recs = readBase(baseWb);
+  const teacher = readTeachers(baseWb);
+  const n = recs.length;
+  const tot = recs.map(x=>num(x['总分']));
+  const totRankMin = rankMin(tot);
+  const subjRankMin = {};
+  SUBJECTS.forEach(s=> subjRankMin[s] = rankMin(recs.map(x=>num(x[s]))));
+  // 动态班级
+  const setCls={}; recs.forEach(r=> setCls[classCode(r['班级'])]=r['班级']);
+  const CLASSES=Object.keys(setCls).sort().map(code=>setCls[code]);
+  const CLASS_SHEET={}; CLASSES.forEach(c=> CLASS_SHEET[c]='9'+String(c).trim().replace(/^九/,'').replace(/班$/,''));
+
+  const wb = XLSX.utils.book_new();
+
+  // 1) 单科排名表
+  SUBJECTS.forEach(s=>{
+    const head = ['考生班级','考生姓名',s];
+    const idx = tot.map((_,i)=>i).sort((a,b)=>{
+      const va=num(recs[a][s])==null?-1:num(recs[a][s]), vb=num(recs[b][s])==null?-1:num(recs[b][s]);
+      return (vb-va)||(a-b);
+    });
+    const aoa=[head];
+    idx.forEach(i=> aoa.push([recs[i]['班级'], recs[i]['姓名'], recs[i][s]]));
+    addSheet(wb, s, aoa, 3, title);
+  });
+
+  // 2) 总成绩表(竞赛总分排名, 同分同名次)
+  const head2 = ['考生班级','考生姓名'];
+  SUBJECTS.forEach(s=>{ head2.push(s); });
+  head2.push('总分','总分排名');
+  const order2 = tot.map((_,i)=>i).sort((a,b)=>(( (tot[b]==null?-1:tot[b]) - (tot[a]==null?-1:tot[a]) ))||(a-b));
+  const aoa2=[head2];
+  order2.forEach(i=>{
+    const row=[recs[i]['班级'],recs[i]['姓名']];
+    SUBJECTS.forEach(s=>{ row.push(recs[i][s]); });
+    row.push(recs[i]['总分'], totRankMin[i]);
+    aoa2.push(row);
+  });
+  addSheet(wb, '总成绩', aoa2, head2.length, title);
+
+  // 3) 总分成绩及排名 全科名次总表(录入顺序, 竞赛名次)
+  const head3=['考生班级','考生姓名'];
+  SUBJECTS.forEach(s=>{ head3.push(s, s+'名次'); });
+  head3.push('总分','总分排名');
+  const aoa3=[head3];
+  for(let i=0;i<n;i++){
+    const row=[recs[i]['班级'],recs[i]['姓名']];
+    SUBJECTS.forEach(s=>{ row.push(recs[i][s], subjRankMin[s][i]); });
+    row.push(recs[i]['总分'], totRankMin[i]);
+    aoa3.push(row);
+  }
+  addSheet(wb, '总分成绩及排名', aoa3, head3.length, title);
+
+  // 4) 各班分班表
+  CLASSES.forEach(cls=>{
+    const head4=['考生姓名','语文','数学','英语','科学','社会','总分','总分排名'];
+    const members=[];
+    for(let i=0;i<n;i++) if(String(recs[i]['班级']).trim()===cls) members.push(i);
+    members.sort((a,b)=>(( (tot[b]==null?-1:tot[b]) - (tot[a]==null?-1:tot[a]) ))||(a-b));
+    const aoa4=[head4];
+    members.forEach(i=>{
+      const r=recs[i];
+      aoa4.push([r['姓名']].concat(SUBJECTS.map(s=>r[s])).concat([r['总分'], totRankMin[i]]));
+    });
+    addSheet(wb, CLASS_SHEET[cls], aoa4, 8, title);
+  });
+
+  // 5) 各科满分人数及名单
+  buildFullMarkSheet(wb, recs, title);
+
+  // 6) 各班各科均分与年级平均分均差对比
+  const prevDiff = readPrevAvgDiff(baseWb);
+  const curDiffName = (document.getElementById('examName').value||'').trim() + '均差';
+  buildAvgDiffSheet(wb, recs, teacher, title, prevDiff, curDiffName);
+
+  // 6.5) 临界生追踪表
+  const criticalMap = readCritical(baseWb);
+  const targetMap = getTargetMap();
+  buildCriticalSheet(wb, recs, totRankMin, criticalMap, targetMap, examShortText(), title, readPrevTrack(baseWb), (document.getElementById('examName').value||'').trim());
+
+  // 6.6) 各档保优人数
+  const refData = readRefNums(baseWb);
+  const honorLines = getHonorLines();
+  buildHonorSheet(wb, recs, totRankMin, refData, honorLines, examShortText(), readPrevHonor(baseWb));
+
+  // 7) 缺考名单
+  let aoa5=[['班级','姓名','备注']];
+  if(tplWb && tplWb.SheetNames.indexOf('缺考名单')>=0){
+    aoa5 = XLSX.utils.sheet_to_json(tplWb.Sheets['缺考名单'], {header:1, defval:''});
+    if(aoa5.length===0) aoa5=[['班级','姓名','备注']];
+    const rows5=[[title]].concat(aoa5);
+    const ws5=XLSX.utils.aoa_to_sheet(rows5);
+    ws5['!merges']=[{s:{r:0,c:0},e:{r:0,c:Math.max(3,rows5[0].length)-1}}];
+    for(let c=0;c<rows5[0].length;c++){
+      const a=XLSX.utils.encode_cell({r:0,c}); if(!ws5[a]) ws5[a]={t:'s',v:''}; ws5[a].s=TITLE_STYLE;
+      const b=XLSX.utils.encode_cell({r:1,c}); if(ws5[b]) ws5[b].s=HEADER_STYLE;
+    }
+    autoWidth(ws5, rows5[0].length); ws5['!freeze']='A3';
+    XLSX.utils.book_append_sheet(wb, ws5, '缺考名单');
+  } else {
+    addSheet(wb, '缺考名单', aoa5, 3, title);
+  }
+
+  XLSX.writeFile(wb, '分析表_自动生成.xlsx');
+  const totalSheets = SUBJECTS.length + 4 + CLASSES.length; // 单科5 + 总成绩/总分成绩及排名/满分/均差对比 + 各班 + 缺考
+  return {aoa2:aoa2, n:n, sheetCount: wb.SheetNames.length};
+}
+
+// UI
+function setupDrop(dropId, inputId, nameId, onFile){
+  const drop=document.getElementById(dropId), input=document.getElementById(inputId), name=document.getElementById(nameId);
+  input.addEventListener('change', e=>{ if(e.target.files[0]) handle(e.target.files[0]); });
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('hover'); });
+  drop.addEventListener('dragleave', ()=> drop.classList.remove('hover'));
+  drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('hover'); if(e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]); });
+  function handle(f){
+    name.textContent=f.name;
+    const rd=new FileReader();
+    rd.onload=ev=>{
+      try{ const wb=XLSX.read(ev.target.result,{type:'array'}); onFile(wb,f); }
+      catch(err){ showMsg('读取失败：'+err.message,'err'); }
+    };
+    rd.readAsArrayBuffer(f);
+  }
+}
+function showMsg(t,cls){ const m=document.getElementById('msg'); m.textContent=t; m.className='msg '+cls; }
+
+setupDrop('drop1','file1','name1', wb=>{
+  baseWb=wb; document.getElementById('btn').disabled=false;
+  try{ renderHonorInputs(); }catch(e){}
+  try{ renderTargetInputs(wb); }catch(e){}
+  
+  showMsg('基础数据已就绪，请确认已填写考试名称与时间后生成。','ok');
+});
+
+
+function renderPreview(aoa2){
+  const card=document.getElementById('previewCard'), pv=document.getElementById('preview');
+  let html='<table>';
+  aoa2.slice(0,13).forEach((r,ri)=>{
+    html+='<tr>';
+    r.forEach(c=>{ html+= (ri===0?'<th>':'<td>')+(c===''?'&nbsp;':c)+(ri===0?'</th>':'</td>'); });
+    html+='</tr>';
+  });
+  html+='</table>';
+  pv.innerHTML=html; card.style.display='block';
+}
+
+document.getElementById('btn').addEventListener('click', ()=>{
+  try{
+    const res=generate();
+    document.getElementById('count').textContent='已导入 '+res.n+' 名学生，分析表已下载（共 '+res.sheetCount+' 个工作表）。';
+    showMsg('生成成功！分析表_自动生成.xlsx 已开始下载（共 '+res.sheetCount+' 个工作表）。','ok');
+    renderPreview(res.aoa2);
+  }catch(err){ showMsg('生成失败：'+err.message,'err'); }
+});
+
+document.getElementById('btnApplyAll').addEventListener('click', function(){
+  var v=document.getElementById('allTarget').value; if(v===''){ return; }
+  document.querySelectorAll('#targetInputs .tgtInput').forEach(i=> i.value=v);
+});
+document.getElementById('btnReload').addEventListener('click', function(){ document.getElementById('fileReload').click(); });
+document.getElementById('fileReload').addEventListener('change', function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(ev){
+    try{
+      baseWb = XLSX.read(ev.target.result,{type:'array'});
+      try{ renderHonorInputs(); }catch(e){}
+      try{ renderTargetInputs(baseWb); }catch(e){}
+      document.getElementById('name1').textContent = f.name;
+      document.getElementById('btn').disabled = false;
+      var res = generate();
+      document.getElementById('count').textContent = '已重新导入 ' + res.n + ' 名学生，分析表已下载（共 '+res.sheetCount+' 个工作表）。';
+      showMsg('已导入新表「' + f.name + '」并重新计算完成，分析表_自动生成.xlsx 已开始下载（共 '+res.sheetCount+' 个工作表）。','ok');
+      renderPreview(res.aoa2);
+    }catch(err){ showMsg('重新导入失败：' + err.message,'err'); }
+  };
+  rd.readAsArrayBuffer(f);
+  e.target.value='';
+});
+</script>
+</body>
+</html>
