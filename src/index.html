@@ -70,6 +70,12 @@
   #remainTip{font-size:12px;color:#2b4f9b;text-align:center;margin-top:8px;}
   body.auth-locked{overflow:hidden;}
 </style>
+
+@media print{
+  #authGate,.examBox,.card,header,footer,#previewCard,#btnReload{display:none!important;}
+  body{background:#fff;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  }
 </head>
 <body>
 <div id="authGate">
@@ -422,7 +428,7 @@ function buildAvgDiffSheet(wb, recs, teacher, title, prevDiff, curDiffName){
   recs.forEach(r=>{
     const cc=classCode(r['班级']);
     SUBJECTS.concat(['总分']).forEach(s=>{
-      const v=num(r[s]); if(v==null) return;
+      const v=num(r[s]); if(v==null||v===0) return;
       if(sumCnt[s][cc]){ sumCnt[s][cc].s+=v; sumCnt[s][cc].n++; }
       sumCnt[s]['__all'].s+=v; sumCnt[s]['__all'].n++;
     });
@@ -744,12 +750,12 @@ function buildCriticalSheet(wb, recs, totRankMin, criticalMap, targetMap, examSh
         for(let si=0;si<NH;si++){
           let val='';
           const bucket=(pList[si]&&pList[si][s]&&pList[si][s][b.code])?pList[si][s][b.code][nm]:null;
-          if(bucket!=null){ val=Math.round(bucket*100)/100; if(bucket<b.target) special.push({r:row,c:colOf(kk,si)}); }
+          if(bucket!=null){ val=Math.round(bucket*100)/100; if(bucket>=b.target) special.push({r:row,c:colOf(kk,si)}); }
           aoa[row][colOf(kk,si)]=val;
         }
         // 本次列
         const gi=idx[nm]; let val='';
-        if(gi!=null){ const v=num(recs[gi][s]); val=(v==null?'':recs[gi][s]); if(v!=null && v<b.target) special.push({r:row,c:curCol(kk)}); }
+        if(gi!=null){ const v=num(recs[gi][s]); val=(v==null?'':recs[gi][s]); if(v!=null && v>=b.target) special.push({r:row,c:curCol(kk)}); }
         aoa[row][curCol(kk)]=val;
       });
       const gi=idx[nm];
@@ -759,16 +765,16 @@ function buildCriticalSheet(wb, recs, totRankMin, criticalMap, targetMap, examSh
     // 平均分（各学科本次列 + 总分，两位小数）
     aoa[row][0]='平均分'; merges.push({s:{r:row,c:0},e:{r:row,c:1}});
     SUBJECTS.forEach((s,kk)=>{ let ss=0,cnt=0;
-      b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi][s]); if(v!=null){ss+=v;cnt++;} } });
-      aoa[row][curCol(kk)]=cnt?Math.round(ss/cnt*100)/100:''; if(aoa[row][curCol(kk)]!=='') avgCells.push({r:row,c:curCol(kk)}); });
-    let ts=0,tc=0; b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi]['总分']); if(v!=null){ts+=v;tc++;} } });
+      b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi][s]); if(v!=null && v>0){ss+=v;cnt++;} } });
+      aoa[row][curCol(kk)]=cnt?Math.round(ss/cnt*100)/100:''; if(aoa[row][curCol(kk)]!=='') avgCells.push({r:row,c:curCol(kk),val:aoa[row][curCol(kk)],target:b.target}); });
+    let ts=0,tc=0; b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi]['总分']); if(v!=null && v>0){ts+=v;tc++;} } });
     aoa[row][colTotal]=tc?Math.round(ts/tc*100)/100:''; if(aoa[row][colTotal]!=='') avgCells.push({r:row,c:colTotal});
     row++;
     // 有效分达标率（各学科本次列，百分数）
     aoa[row][0]='有效分达标率'; merges.push({s:{r:row,c:0},e:{r:row,c:1}});
     SUBJECTS.forEach((s,kk)=>{ let hit=0;
       b.names.forEach(nm=>{ const gi=idx[nm]; if(gi!=null){ const v=num(recs[gi][s]); if(v!=null && v>=b.target) hit++; } });
-      if(n){ aoa[row][curCol(kk)]= hit/n; pctCells.push({r:row,c:curCol(kk)}); } else { aoa[row][curCol(kk)]=''; } });
+      if(n){ aoa[row][curCol(kk)]= hit/n; pctCells.push({r:row,c:curCol(kk),val:hit/n}); } else { aoa[row][curCol(kk)]=''; } });
     row++;
   });
   const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -780,7 +786,7 @@ function buildCriticalSheet(wb, recs, totRankMin, criticalMap, targetMap, examSh
   const COLH={font:{bold:true,color:{rgb:'2B4F9B'},sz:10,name:'宋体'},fill:{fgColor:{rgb:'DDE6F7'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:BRD};
   const CELL ={font:{sz:11,name:'宋体'},alignment:{horizontal:'center',vertical:'center'},border:BRD};
   const AVGR ={font:{bold:true,sz:11,name:'宋体'},fill:{fgColor:{rgb:'EAF1FB'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
-  const PINK ={font:{sz:11,name:'宋体'},fill:{fgColor:{rgb:'FFC0CB'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
+  const PINK ={font:{sz:11,name:'宋体'},fill:{fgColor:{rgb:'FFC0CB'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};const BLUE ={font:{bold:true,color:{rgb:'FFFFFF'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'4472C4'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};const YELLOW={font:{bold:true,color:{rgb:'7F6000'},sz:11,name:'宋体'},fill:{fgColor:{rgb:'FFFF00'}},alignment:{horizontal:'center',vertical:'center'},border:BRD};
   let r2=off;
   if(off){ styleRange(ws,0,0,0,NC-1,TTITLE); }
   blocks.forEach(b=>{
@@ -792,8 +798,8 @@ function buildCriticalSheet(wb, recs, totRankMin, criticalMap, targetMap, examSh
     styleRange(ws,r2,0,r2,NC-1,AVGR); r2++;              // 有效分达标率
   });
   special.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]) ws[a].s=PINK; });
-  pctCells.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]) ws[a].z='0.00%'; });
-  avgCells.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]) ws[a].z='0.00'; });
+  pctCells.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]){ ws[a].z='0.00%'; if('val' in p) ws[a].s=(p.val>=0.5)?BLUE:YELLOW; } });
+  avgCells.forEach(p=>{ const a=XLSX.utils.encode_cell({r:p.r,c:p.c}); if(ws[a]){ ws[a].z='0.00'; if('val' in p && 'target' in p) ws[a].s=(p.val>=p.target)?BLUE:YELLOW; } });
   const cols=[{wch:6},{wch:11}];
   for(let k=0;k<SUBJECTS.length;k++) for(let w=0;w<W;w++) cols.push({wch:12});
   cols.push({wch:9}); cols.push({wch:9});
